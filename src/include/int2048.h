@@ -19,10 +19,17 @@
 
 namespace sjtu {
 class int2048 {
-  // todo
+private:
+  static constexpr unsigned int BASE_ = 100000; // 选择BASE_进制
+  static constexpr unsigned int BASE_SIZE_ = 5; // 一个BASE_的长度
+  
+  std::vector<unsigned int> digits_; // 数位
+  bool negative_; // 是否为负
+  
 public:
-  // 构造函数
+  // 空构造函数
   int2048();
+  // long long 构造函数
   int2048(long long);
   int2048(const std::string &);
   int2048(const int2048 &);
@@ -33,10 +40,20 @@ public:
   // Integer1
   // ===================================
 
+  // 判断是否为0
+  bool is_zero() const;
+
+  /**
+   * 标准化，原则
+   * 1. 无前导0
+   * 2. 不存在负0
+   */
+  void normalize();
+
   // 读入一个大整数
   void read(const std::string &);
   // 输出储存的大整数，无需换行
-  void print();
+  void print() const;
 
   // 加上一个大整数
   int2048 &add(const int2048 &);
