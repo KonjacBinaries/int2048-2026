@@ -18,14 +18,26 @@
 // 请不要使用 using namespace std;
 
 namespace sjtu {
+struct omega_table;
 class int2048 {
 private:
   static constexpr unsigned int BASE_ = 100000; // 选择BASE_进制
   static constexpr unsigned int BASE_SIZE_ = 5; // 一个BASE_的长度
-  
+  static constexpr unsigned long long MODULE[2] = {998244353ull, 469762049ull}; // 模数
+  static constexpr unsigned long long PRIMITIVE_ROOT = 3ull; // 两个模数共同的原根
+  static constexpr unsigned long long INVERSE_OF_MODULE_0_MOD_MODULE_1 = 208783132ull; // MODULE_0在模MODULE_1意义下的逆元
+  friend constexpr omega_table make_omega_table();
+  protected:
   std::vector<unsigned int> digits_; // 数位
   bool negative_; // 是否为负
-  
+  // 判断是否为0
+  bool is_zero() const;
+  /**
+   * 标准化，原则
+   * 1. 无前导0
+   * 2. 不存在负0
+   */
+  void normalize();
 public:
   // 空构造函数
   int2048();
@@ -39,16 +51,6 @@ public:
   // ===================================
   // Integer1
   // ===================================
-
-  // 判断是否为0
-  bool is_zero() const;
-
-  /**
-   * 标准化，原则
-   * 1. 无前导0
-   * 2. 不存在负0
-   */
-  void normalize();
 
   // 读入一个大整数
   void read(const std::string &);
@@ -73,14 +75,39 @@ public:
   int2048 operator-() const;
 
   int2048 &operator=(const int2048 &);
+  int2048 &operator=(const long long &);
 
   int2048 &operator+=(const int2048 &);
   friend int2048 operator+(int2048, const int2048 &);
+  int2048 &operator+=(const long long &);
+  friend int2048 operator+(int2048, const long long &);
+  friend int2048 operator+(const long long &, int2048);
 
   int2048 &operator-=(const int2048 &);
   friend int2048 operator-(int2048, const int2048 &);
+  int2048 &operator-=(const long long &);
+  friend int2048 operator-(int2048, const long long &);
+  friend int2048 operator-(const long long &, int2048);
 
+  template <bool use_module>
+  friend void NTT(
+    std::vector<unsigned int> &,
+    const unsigned int &,
+    const unsigned int &,
+    const bool &);
   int2048 &operator*=(const int2048 &);
+  /**
+   * 将A和B在模MODULE意义下相乘
+   * 结果写回A
+   */
+  template <bool use_module>
+  friend void multiply_single_module(int2048 &, int2048);
+  /**
+   * 将(*this)和B相乘
+   * 结果写回(*this)
+   */
+  int2048 &multiply(int2048);
+  friend void merge(unsigned int, unsigned int, unsigned long long&);
   friend int2048 operator*(int2048, const int2048 &);
 
   int2048 &operator/=(const int2048 &);

@@ -33,6 +33,7 @@ public:
   int2048(long long);
   int2048(const std::string &);
   int2048(const int2048 &);
+  int2048(int2048 &&);
 
   // 以下给定函数的形式参数类型仅供参考，可自行选择使用常量引用或者不使用引用
   // 如果需要，可以自行增加其他所需的函数
@@ -73,6 +74,7 @@ public:
   int2048 operator-() const;
 
   int2048 &operator=(const int2048 &);
+  int2048 &operator=(int2048 &&);
 
   int2048 &operator+=(const int2048 &);
   friend int2048 operator+(int2048, const int2048 &);
@@ -168,9 +170,10 @@ int2048::int2048(const std::string &value) {
     normalize();
     return;
 }
-int2048::int2048(const int2048 &) = default; // 采用默认的拷贝构造
+int2048::int2048(const int2048 &) = default; // 采用默认拷贝构造
+int2048::int2048(int2048 &&) = default; // 采用默认移动构造
 int2048 &int2048::operator=(const int2048 &) = default; // 采用默认拷贝赋值
-
+int2048 &int2048::operator=(int2048 &&) = default; // 采用默认移动赋值
 void int2048::read(const std::string &value) {
     int value_size = value.size();
     if (!value_size) {
@@ -254,61 +257,61 @@ int2048 &int2048::add(const int2048 &value) {
         // -((-A) - B) = A + B
         negative_ ^= true;
         this->minus(value); // 调用减法
+        if (digits_.empty()) {
+            return *this;
+        } // 拦截0，防止反转成-0
         negative_ ^= true;
         return *this;
     } else { // 同号
         // 符号不变
-        bool carrier = false;
+        bool carry = false;
+        unsigned int pointer = 0, temp = 0;
         if (digits_.size() > value.digits_.size()) { // 当前数位数更大
-            for (int i = 0; i < value.digits_.size(); ++i) {
-                digits_[i] += value.digits_[i];
-                if (carrier) {
-                    ++digits_[i];
-                    carrier = false;
-                }
-                if (digits_[i] >= BASE_) {
-                    digits_[i] -= BASE_;
-                    carrier = true;
-                }
+            while (pointer < value.digits_.size()) {
+                digits_[pointer] += value.digits_[pointer] + carry;
+                carry = digits_[pointer] >= BASE_;
+                digits_[pointer] -= (carry ? BASE_ : 0u);
+                ++pointer;
             } // 处理重叠部分加法
-            for (int i = value.digits_.size(); i < digits_.size(); ++i) {
-                if (carrier) {
-                    ++digits_[i];
-                    carrier = false;
-                } else {
-                    break;
-                }
-                if (digits_[i] >= BASE_) {
-                    digits_[i] -= BASE_;
-                    carrier = true;
-                }
+            while (carry && pointer < digits_.size()) {
+                ++digits_[pointer];
+                carry = digits_[pointer] >= BASE_;
+                digits_[pointer] -= (carry ? BASE_ : 0u);   
+                ++pointer;          
             }
-            if (carrier) {
-                digits_.push_back(1);
+            if (carry) {
+                digits_.push_back(1u);
             } // 已经处理完最高位，仍然存在一个进位
             // 加法不会新增前导0， 不必标准化，下同
         } else {
+            unsigned int previous_size = digits_.size();
             digits_.resize(value.digits_.size()); // 位数对齐
-            for (int i = 0; i < value.digits_.size(); ++i) {
-                digits_[i] += value.digits_[i];
-                if (carrier) {
-                    ++digits_[i];
-                    carrier = false;
-                }
-                if (digits_[i] >= BASE_) {
-                    digits_[i] -= BASE_;
-                    carrier = true;
-                }
-            } // 处理加法
-            if (carrier) {
-                digits_.push_back(1);
+            while (pointer < previous_size) {
+                digits_[pointer] += value.digits_[pointer] + carry;
+                carry = digits_[pointer] >= BASE_;
+                digits_[pointer] -= (carry ? BASE_ : 0u);
+                ++pointer;
+            } // 处理重叠部分加法
+            while (carry && pointer < digits_.size()) {
+                temp = value.digits_[pointer] + 1u;
+                carry = temp >= BASE_;
+                digits_[pointer] = (carry ? 0u : temp);
+                ++pointer;
+            }
+            while (pointer < digits_.size()) {
+                digits_[pointer] = value.digits_[pointer];
+                ++pointer;
+            }
+            if (carry) {
+                digits_.push_back(1u);
             } // 已经处理完最高位，仍然存在一个进位
         }
     }
     return *this;
 }
 int2048 add(int2048 A, const int2048 &B) {
-    return A.add(B);
+    A.add(B);
+    return A;
 }
 
 int2048 &int2048::minus(const int2048 &value) {
@@ -328,87 +331,70 @@ int2048 &int2048::minus(const int2048 &value) {
         this->add(value);
         negative_ ^= true;
     } else { // 同号
-        bool borrow;
-        unsigned int temp;
+        bool borrow = false;
+        unsigned int temp, pointer = 0;
         if (value.digits_.size() < digits_.size()) { // 此时，一定是this的绝对值更大
             // 符号与this一致，不改变
-            borrow = false;
-            for (int i = 0; i < value.digits_.size(); ++i) {
-                temp = value.digits_[i] + borrow; // 要减去的数字
-                if (temp > digits_[i]) {
-                    digits_[i] = (digits_[i] + BASE_) - temp;
-                    borrow = true;
-                } else {
-                    digits_[i] -= temp;
-                    borrow = false;
-                }
+            while (pointer < value.digits_.size()) {
+                temp = value.digits_[pointer] + borrow; // 要减去的数字
+                borrow = temp > digits_[pointer];
+                digits_[pointer] = (digits_[pointer] + (borrow ? BASE_ : 0u)) - temp;
+                ++pointer;
             } // 处理重叠部分
-            for (int i = value.digits_.size(); i < digits_.size(); ++i) {
-                if (borrow) {
-                    if (digits_[i]) {
-                        digits_[i] -= 1;
-                        break; // 借位终止
-                    } else {
-                        digits_[i] = BASE_ - 1;
-                        borrow = true;
-                    }
-                } else {
-                    break;
-                }
+            while (borrow && pointer < digits_.size()) {
+                borrow = digits_[pointer] == 0u;
+                digits_[pointer] = (borrow ? BASE_ - 1u : digits_[pointer] - 1u);
+                ++pointer;
             } // 处理剩余借位
             normalize(); // 标准化
         } else if (value.digits_.size() > digits_.size()) { // 此时，value绝对值更大
             negative_ = value.negative_ ^ true;
-            borrow = false;
+            unsigned int previous_size = digits_.size();
             digits_.resize(value.digits_.size());
-            for (int i = 0; i < value.digits_.size(); ++i) {
-                temp = digits_[i] + borrow;
-                if (temp > value.digits_[i]) {
-                    digits_[i] = (value.digits_[i] + BASE_) - temp;
-                    borrow = true;
-                } else {
-                    digits_[i] = value.digits_[i] - temp;
-                    borrow = false;
-                }
+            while (pointer < previous_size) {
+                temp = digits_[pointer] + borrow;
+                borrow = temp > value.digits_[pointer];
+                digits_[pointer] = (value.digits_[pointer] + (borrow ? BASE_ : 0u)) - temp;
+                ++pointer;
+            }
+            while (borrow && pointer < digits_.size()) {
+                borrow = value.digits_[pointer] == 0u;
+                digits_[pointer] = (borrow ? BASE_ - 1u : value.digits_[pointer] - 1u);
+                ++pointer;
+            }
+            while (pointer < digits_.size()) {
+                digits_[pointer] = value.digits_[pointer];
+                ++pointer;
             }
             normalize(); // 标准化
         } else {
-            int value_pointer = value.digits_.size() - 1;
-            while ((!digits_.empty()) 
-                   && (digits_.back() == value.digits_[value_pointer])) {
-                digits_.pop_back();
-                --value_pointer;
+            unsigned int size = digits_.size();
+            while ((size) 
+                   && (digits_[size - 1u] == value.digits_[size - 1u])) {
+                --size;
             } // 删除高位的相同数块
+            digits_.resize(size);
             if (digits_.empty()) {
                 negative_ = false;
                 return *this;
             } // 两数相等
+            unsigned int value_pointer = size - 1u;
             if (digits_.back() > value.digits_[value_pointer]) { // this更大
                 // 符号与this一致
-                borrow = false;
-                for (int i = 0; i <= value_pointer; ++i) { // 之所以这么写，是因为value_pointer = digits_.size() - 1
-                    temp = value.digits_[i] + borrow;
-                    if (temp > digits_[i]) {
-                        digits_[i] = (digits_[i] + BASE_) - temp;
-                        borrow = true;
-                    } else {
-                        digits_[i] -= temp;
-                        borrow = false;
-                    }
+                while (pointer <= value_pointer) { // 之所以这么写，是因为value_pointer = digits_.size() - 1
+                    temp = value.digits_[pointer] + borrow;
+                    borrow = temp > digits_[pointer];
+                    digits_[pointer] = (digits_[pointer] + (borrow ? BASE_ : 0u)) - temp;
+                    ++pointer;
                 }
                 normalize();
             } else { // value更大
                 negative_ = value.negative_ ^ true;
-                borrow = false;
-                for (int i = 0; i <= value_pointer; ++i) { // 之所以这么写，是因为value_pointer = digits_.size() - 1
-                    temp = digits_[i] + borrow;
-                    if (temp > value.digits_[i]) {
-                        digits_[i] = (value.digits_[i] + BASE_) - temp;
-                        borrow = true;
-                    } else {
-                        digits_[i] = value.digits_[i] - temp;
-                        borrow = false;
-                    }
+                while (pointer <= value_pointer) { // 之所以这么写，是因为value_pointer = digits_.size() - 1
+                    temp = digits_[pointer] + borrow;
+                    borrow = temp > value.digits_[pointer];
+                    digits_[pointer] = (value.digits_[pointer] + (borrow ? BASE_ : 0u)) - temp;
+                    ++pointer;
                 }
                 normalize();
             }
@@ -417,7 +403,8 @@ int2048 &int2048::minus(const int2048 &value) {
     return *this;
 }
 int2048 minus(int2048 A, const int2048 &B) {
-    return A.minus(B);
+    A.minus(B);
+    return A;
 }
 
 } // namespace sjtu
