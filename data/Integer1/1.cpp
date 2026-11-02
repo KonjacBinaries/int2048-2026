@@ -5,8 +5,7 @@ std Time: 0.00s
 Time Limit: 1.00s
 */
 
-#include "../../src/include/int2048.h"
-#include "../../src/int2048.cpp"
+#include "int2048.h"
 
 int main()
 {

@@ -5,8 +5,7 @@ std Time: 0.01s
 Time Limit: 1.00s
 */
 
-#include "../../src/include/int2048.h"
-#include "../../src/int2048.cpp"
+#include "int2048.h"
 #include <vector>
 
 std::vector<sjtu::int2048> v;
