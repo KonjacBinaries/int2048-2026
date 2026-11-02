@@ -105,7 +105,32 @@ int2048 &int2048::operator=(const long long &origin_number) {
     normalize();
     return *this;
 }
-
+void int2048::read(long long origin_number) {
+    negative_ = false;
+    digits_.clear();
+    if (origin_number == 0) {
+        return;
+    }
+    unsigned long long number = static_cast<unsigned long long>(origin_number);
+    if (origin_number < 0) {
+        negative_ = true;
+        // 如果origin_number < 0，那么此时number里面存储的应该是 ULL_MAX + origin_number
+        number = 0ull - number;
+        // ULL_MAX - (ULL_MAX + origin_number) = -origin_number
+        // 这样是为了防止number_ = -LL_MAX，然后因为补码还是自己直接UB
+    }
+    while (number) {
+        if (number < BASE_) {
+            digits_.push_back(number);
+            break;
+        }
+        long long res = number / BASE_;
+        digits_.push_back(static_cast<unsigned int>(number - res * BASE_));
+        number = res;
+    }
+    normalize();
+    return;
+}
 void int2048::read(const std::string &number) {
     int number_size = number.size();
     if (!number_size) {
@@ -200,13 +225,13 @@ int2048 &int2048::add(const int2048 &number) {
             while (pointer < number.digits_.size()) {
                 digits_[pointer] += number.digits_[pointer] + carry;
                 carry = digits_[pointer] >= BASE_;
-                digits_[pointer] -= (carry ? BASE_ : 0u);
+                digits_[pointer] -= (0u - carry) & BASE_;
                 ++pointer;
             } // 处理重叠部分加法
             while (carry && pointer < digits_.size()) {
                 ++digits_[pointer];
                 carry = digits_[pointer] >= BASE_;
-                digits_[pointer] -= (carry ? BASE_ : 0u);   
+                digits_[pointer] -= (0u - carry) & BASE_;   
                 ++pointer;          
             }
             if (carry) {
@@ -219,13 +244,13 @@ int2048 &int2048::add(const int2048 &number) {
             while (pointer < previous_size) {
                 digits_[pointer] += number.digits_[pointer] + carry;
                 carry = digits_[pointer] >= BASE_;
-                digits_[pointer] -= (carry ? BASE_ : 0u);
+                digits_[pointer] -= (0u - carry) & BASE_;
                 ++pointer;
             } // 处理重叠部分加法
             while (carry && pointer < digits_.size()) {
                 temp = number.digits_[pointer] + 1u;
                 carry = temp >= BASE_;
-                digits_[pointer] = (carry ? 0u : temp);
+                digits_[pointer] = (0u - (carry ^ 1u)) & temp;
                 ++pointer;
             }
             while (pointer < digits_.size()) {
@@ -266,12 +291,12 @@ int2048 &int2048::minus(const int2048 &number) {
             while (pointer < number.digits_.size()) {
                 temp = number.digits_[pointer] + borrow; // 要减去的数字
                 borrow = temp > digits_[pointer];
-                digits_[pointer] = (digits_[pointer] + (borrow ? BASE_ : 0u)) - temp;
+                digits_[pointer] = digits_[pointer] + ((0u - borrow) & BASE_) - temp;
                 ++pointer;
             } // 处理重叠部分
             while (borrow && pointer < digits_.size()) {
                 borrow = digits_[pointer] == 0u;
-                digits_[pointer] = (borrow ? BASE_ - 1u : digits_[pointer] - 1u);
+                digits_[pointer] = ((0u - borrow) & BASE_) + ((0u - (borrow ^ 1u)) & digits_[pointer]) - 1u;
                 ++pointer;
             } // 处理剩余借位
             normalize(); // 标准化
@@ -282,12 +307,12 @@ int2048 &int2048::minus(const int2048 &number) {
             while (pointer < previous_size) {
                 temp = digits_[pointer] + borrow;
                 borrow = temp > number.digits_[pointer];
-                digits_[pointer] = (number.digits_[pointer] + (borrow ? BASE_ : 0u)) - temp;
+                digits_[pointer] = (number.digits_[pointer] + ((0u - borrow) & BASE_)) - temp;
                 ++pointer;
             }
             while (borrow && pointer < digits_.size()) {
                 borrow = number.digits_[pointer] == 0u;
-                digits_[pointer] = (borrow ? BASE_ - 1u : number.digits_[pointer] - 1u);
+                digits_[pointer] = ((0u - borrow) & BASE_) + ((0u - (borrow ^ 1u)) & number.digits_[pointer]) - 1u;
                 ++pointer;
             }
             while (pointer < digits_.size()) {
@@ -312,7 +337,7 @@ int2048 &int2048::minus(const int2048 &number) {
                 while (pointer <= number_pointer) { // 之所以这么写，是因为number_pointer = digits_.size() - 1
                     temp = number.digits_[pointer] + borrow;
                     borrow = temp > digits_[pointer];
-                    digits_[pointer] = (digits_[pointer] + (borrow ? BASE_ : 0u)) - temp;
+                    digits_[pointer] = (digits_[pointer] + ((0u - borrow) & BASE_)) - temp;
                     ++pointer;
                 }
                 normalize();
@@ -321,7 +346,7 @@ int2048 &int2048::minus(const int2048 &number) {
                 while (pointer <= number_pointer) { // 之所以这么写，是因为number_pointer = digits_.size() - 1
                     temp = digits_[pointer] + borrow;
                     borrow = temp > number.digits_[pointer];
-                    digits_[pointer] = (number.digits_[pointer] + (borrow ? BASE_ : 0u)) - temp;
+                    digits_[pointer] = (number.digits_[pointer] + ((0u - borrow) & BASE_)) - temp;
                     ++pointer;
                 }
                 normalize();
@@ -735,6 +760,32 @@ int2048 &int2048::multiply(int2048 B) {
         negative_ = false;
         return *this;
     }
+    if (digits_.size() == 1 || B.digits_.size() == 1) {
+        const bool negative = negative_ ^ B.negative_; // 定号
+        unsigned long long carry = 0, temp;
+        unsigned long long value = digits_[0];
+        if (digits_.size() == 1) {
+            *this = B;
+        } else {
+            value = B.digits_[0];
+        }
+        if (value != 1ull) {
+            for (int i = 0; i < digits_.size(); ++i) {
+                unsigned long long x = value * digits_[i];
+                x += carry;
+                carry = x / BASE_;
+                digits_[i] = x - carry * BASE_;
+            }
+            while (carry) {
+                temp = carry;
+                carry /= BASE_;
+                digits_.push_back(temp - carry * BASE_);
+            } // 已经填满了Result_0的全部数位，仍然存在进位，只能是继续填充高位
+        }
+        negative_ = negative;
+        normalize();
+        return *this;
+    } // 单位乘法快速通道
     int2048 &Result_0 = *this;
     int2048 Result_1 = *this; // 拷贝一份
     multiply_single_module<0>(Result_0, B);
@@ -762,5 +813,242 @@ int2048 &int2048::operator*=(const int2048 &B) {
 int2048 operator*(int2048 A, const int2048 &B) {
     return A.multiply(B);
 }
-
+void int2048::expand(int count) {
+    digits_.resize(digits_.size() + count, 0u);
+    int size = digits_.size();
+    for (int i = size - 1; i >= count; --i) {
+        digits_[i] = digits_[i - count];
+    }
+    for (int i = 0; i < count; ++i) {
+        digits_[i] = 0u;
+    }
+    normalize();
+    return;
+}
+void int2048::shrink(int count) {
+    int size = digits_.size();
+    if (count >= size) {
+        digits_.clear();
+        negative_ = false;
+        return;
+    }
+    for (int i = 0; i < size - count; ++i) {
+        digits_[i] = digits_[i + count];
+    }
+    digits_.resize(size - count);
+    normalize();
+    return;
+}
+static int2048 ignore; // 填充符
+bool divide_trivial(const int2048 &A, const int2048 &B, int2048 &Q, int2048 &R) {
+    if (B.is_zero()) {
+        return true;
+    }
+    // 约定A和B非负
+    if (A.is_zero()) {
+        Q = 0;
+        R = 0;
+        return true;
+    }
+    bool flag = true;
+    if (A.digits_.size() != B.digits_.size()) {
+        if (A.digits_.size() < B.digits_.size()) {
+            Q = 0;
+            R = A;
+            return true;
+        }
+        flag = false;
+    }
+    for (int i = static_cast<int>(A.digits_.size()) - 1; flag && i >= 0; --i) {
+        if (A.digits_[i] != B.digits_[i]) {
+            if (A.digits_[i] < B.digits_[i]) {
+                Q = 0;
+                R = A;
+                return true;
+            }
+            flag = false;
+            break;
+        }
+    }
+    if (flag) {
+        Q = 1;
+        R = 0;
+        return true;
+    } // 说明 A == B
+    if (B.digits_.size() == 1u) {
+        const unsigned long long value = B.digits_[0];
+        unsigned long long res = 0;
+        Q = 0; Q.digits_.resize(A.digits_.size(), 0u);
+        for (int i = static_cast<int>(A.digits_.size()) - 1; i >= 0; --i) {
+            res = res * int2048::BASE_ + A.digits_[i];
+            Q.digits_[i] = res / value;
+            res = res - 1ull * Q.digits_[i] * value;
+        }
+        R = res;
+        Q.normalize();
+        return true;
+    } // 单位除法快速通道
+    return false;
+}
+void divide_basic(const int2048 &A, const int2048 &B, int2048 &Q, int2048 &R) {
+    if (divide_trivial(A, B, Q, R)) {
+        return;
+    }
+    const int U_length = A.digits_.size(), V_length = B.digits_.size();
+    int2048 d = int2048::BASE_ / (B.digits_[V_length - 1] + 1u);
+    // 归一化，确保除数最高位达到或超过一半
+    int2048 U = d * A, V = d * B; // 这会调用单位乘法快速通道
+    // 求出来的R，除掉d即可得到最终的R
+    unsigned long long a = V.digits_[V_length - 1]; // 除数最高位
+    unsigned long long c = V.digits_[V_length - 2]; // 除数次高位
+    Q = 0; Q.digits_.resize(U_length - V_length + 1);
+    U.digits_.push_back(0u);
+    for (int low = U_length - V_length; low >= 0; --low) {
+        int high = low + V_length;
+        // 窗口为第low位到第high位，共计V_length + 1个位
+        // 现在，V_length至少是2，否则会被单位快速除法通道拦截
+        // 所以，区间长度至少是3
+        unsigned long long p = 1ull * U.digits_[high] * int2048::BASE_
+                               + 1ull * U.digits_[high - 1]; // 窗口最高2位
+        unsigned long long q_hat = p / a;
+        if (q_hat > int2048::BASE_ - 1) {
+            q_hat = int2048::BASE_ - 1;
+        }
+        // q_hat是估商
+        // 记D = BASE_的V_length - 1次方
+        // 所以，可以记V = a * D + V_0， 0 <= V_0 < D
+        // 以及W = p * D + W_0, 0 <= W_0 < D
+        // 假设正确的商和余数是q和r
+        // 所以W = q * V + r = q * a * D + q * V_0 + r >= q * a * D
+        // 所以W / D = p + W_0 / D >= q * a
+        // 鉴于q * a是整数，而W_0 / D∈(0, 1)
+        // 容易得到，p >= q * a
+        // 所以，p / a >= q
+        // 从而，由于整数的性质，q_hat >= q
+        // 另一方面，由于p * D + W_0 = q * (a * D + V_0) + r
+        // 有(p - q * a) * D = q * V_0 + r - W_0
+        // 而q < BASE_，V_0 < D，r < aD + V_0
+        // 所以q * V_0 + r - W_0 < (BASE_ - 1) * V_0 + a * D + V_0 = BASE_ * V_0 + a * D < (BASE_ + a) * D
+        // 从而，(p - q * a) * D = q * V_0 + r - W_0 < (BASE_ + a) * D
+        // 从而，p - q * a < BASE_ + a
+        // 0 <= p / a - q < BASE_ / a + 1
+        // 归一化条件保证了BASE_ / a <= 2
+        // 从而0 <= p / a - q < 3
+        // 所以，0 <= q_hat - q <= p / a - q < 3
+        // 从而，0 <= q_hat - q <= 2
+        // 这就是说，至多进行两次矫正
+        // r_hat是初始余数
+        unsigned long long r_hat = p - q_hat * a;
+        unsigned long long w = U.digits_[high - 2];
+        // 除数最高两位：V_2 = a * BASE_ + c
+        // 被除数最高三位：W_3 = p * BASE_ + w
+        // 如果q_hat * V_2 > W_3，此时估商必然偏大
+        // 为什么？这和前文证明q_hat >= q的思想是一样的
+        // 因为我们已经取出了V和W的最高位，
+        // 所以它们一旦超限，直接就不合法，不可能通过进位到下一位来避免这几位超限
+        // 所以，这个限制是一个必要条件
+        // 因此，如果该条件不成立，直接判定偏大
+        // 改写条件：
+        // q_hat * (a * BASE_ + c) > p * BASE_ + w
+        // q_hat * (a * BASE_ + c) > (r_hat + q_hat * a) * BASE_ + w
+        // q_hat * c > r_hat * BASE_ + w
+        // q_hat和c大概都是BASE_量级的
+        // 至于r_hat，如果它>= BASE_，那么右侧必然大于BASE_ ^ 2
+        // 可是，q_hat和c都不会达到BASE_，这就导致LHS < RHS
+        // 所以，可以把r_hat >= BASE_的情况特判掉，确保r_hat < BASE_，避免炸ull
+        // 通过改写，抵消了BASE_ ^ 3量级的数据，确保ull能够处理
+        // 先进行快速判断：
+        while (r_hat < int2048::BASE_ && q_hat * c > r_hat * int2048::BASE_ + w) {
+            --q_hat; // 向下矫正
+            r_hat += a;
+        }
+        // 完成快速矫正，并不能保证结果就正确
+        // 但是这是有收益的，因为不需要进行大整数加减法就能快速矫正
+        // （a是小整数，矫正r_hat的代价远远小于矫正实际余数的代价）
+        // 令E = D / BASE_
+        // 写出V = V_2 * E + V_0
+        // 和W = W_3 * E + W_0
+        // 而快速矫正以后，满足
+        // q_hat * V_2 <= W_3
+        // 所以此时r_all（总正确余数） = W - q_hat * V = (W_3 - q_hat * V_2) * E + W_0 - q_hat * V_0
+        // >= 0 + 0 - BASE_ * E = -D >= -V
+        // 也就是说，r_all + V >= 0，这就是说，至多再进行一次大整数矫正即可
+        int2048 qV(q_hat * V); // 使用窗口 - qV即可，注意移位
+        qV.digits_.resize(V_length + 1);
+        for (int i = V_length; i >= 0; --i) {
+            if (U.digits_[low + i] != qV.digits_[i]) {
+                if (U.digits_[low + i] < qV.digits_[i]) {
+                    --q_hat;
+                    qV -= V; // 大整数减法矫正
+                } // 这说明r_all < 0，执行最后一次修正
+                break;
+            }
+        }
+        // 现在，q_hat已经完全矫正为q，qV也是正确的商产生的结果
+        bool borrow = false;
+        qV.digits_.resize(V_length + 1);
+        for (int i = 0; i <= V_length; ++i) {
+            unsigned int temp = qV.digits_[i] + borrow;
+            borrow = temp > U.digits_[low + i];
+            U.digits_[low + i] = U.digits_[low + i]
+                                 + ((0u - borrow) & int2048::BASE_)
+                                 - temp;
+        }
+        Q.digits_[low] = q_hat; // 写入商
+    }
+    Q.normalize();
+    U.normalize();
+    divide_basic(U, d, R, ignore); // 逆归一化
+    return;
+}
+void compute_reciprocal(const int2048 &B, int2048 &Reciprocal) {
+    const int n = B.digits_.size();
+    if (n <= int2048::TRIVIAL_RECIPROCAL) {
+        int2048 S = 1;
+        S.expand(2 * n);
+        return divide_basic(S, B, Reciprocal, ignore);
+    }
+    const int h = (n >> 1) + 1;
+    const int l = n - h;
+    int2048 C = B;
+    C.shrink(l); // 舍弃B的最低l位
+    int2048 I_C;
+    compute_reciprocal(C, I_C); // 如果B已经完成归一化，那么C也是归一化的
+    // 考虑到C有h位，所以I_C = floor(BASE_ ^ (2 * h) / C)
+    int2048 U = I_C - int2048(4);
+    int2048 X = U; X.expand(l);
+    int2048 F(1);
+    F.expand(n + h);
+    F -= B * U;
+    int2048 T = U * F; T.shrink(2 * h);
+    Reciprocal = X + T;
+    F.expand(l);
+    int2048 R = F - B * T;
+    // 商至多小1
+    if (R >= B) {
+        Reciprocal += int2048(1);
+    } // 矫正
+    return;
+}
+int choose_k(const int2048 & A, const int2048 &B) {
+    int M = A.digits_.size(), N = B.digits_.size();
+    if (M - N + 1 < (N >> 1)) {
+        return M - N + 1;
+    }
+    return N >> 1;
+}
+void divide_advanced(const int2048 &A, const int2048 &B, int2048 &Q, int2048 &R) {
+    if (divide_trivial(A, B, Q, R)) {
+        return;
+    }
+    const int N = B.digits_.size();
+    const int k = choose_k(A, B);
+    const int g = k + 1;
+    int2048 C = B;
+    C.shrink(N - g);
+    int2048 J;
+    compute_reciprocal(C, J);
+    J -= int2048(4);
+    
+}
 } // namespace sjtu

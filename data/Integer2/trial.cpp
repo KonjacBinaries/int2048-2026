@@ -1,14 +1,14 @@
 #include "../../src/include/int2048.h"
 #include "../../src/int2048.cpp"
 
-sjtu::int2048 a, b, c;
+sjtu::int2048 a, b, c, d;
 #include <cassert>
 int main() {
-    unsigned long long c = 0;
-    while(1) {
-        std::cin >> a >> b;
-        a *= b;
-        std::cout << a << std::endl;
+     {
+        std::cin >> a;
+        sjtu::compute_reciprocal(a, b);
+        std::cout << b << std::endl;
+        std::cout << a * b << std::endl;
     }
     return 0;
 }

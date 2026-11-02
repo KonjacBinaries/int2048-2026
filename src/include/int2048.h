@@ -26,6 +26,7 @@ private:
   static constexpr unsigned long long MODULE[2] = {998244353ull, 469762049ull}; // 模数
   static constexpr unsigned long long PRIMITIVE_ROOT = 3ull; // 两个模数共同的原根
   static constexpr unsigned long long INVERSE_OF_MODULE_0_MOD_MODULE_1 = 208783132ull; // MODULE_0在模MODULE_1意义下的逆元
+  static constexpr unsigned int TRIVIAL_RECIPROCAL = 200;
   friend constexpr omega_table make_omega_table();
   protected:
   std::vector<unsigned int> digits_; // 数位
@@ -45,7 +46,10 @@ public:
   int2048(long long);
   int2048(const std::string &);
   int2048(const int2048 &);
-
+  // 最低位补count个0块
+  void expand(int);
+  // 最低的count个块全部舍弃
+  void shrink(int);
   // 以下给定函数的形式参数类型仅供参考，可自行选择使用常量引用或者不使用引用
   // 如果需要，可以自行增加其他所需的函数
   // ===================================
@@ -54,6 +58,7 @@ public:
 
   // 读入一个大整数
   void read(const std::string &);
+  void read(long long);
   // 输出储存的大整数，无需换行
   void print() const;
 
@@ -109,10 +114,39 @@ public:
   int2048 &multiply(int2048);
   friend void merge(unsigned int, unsigned int, unsigned long long&);
   friend int2048 operator*(int2048, const int2048 &);
-
+  /**
+   * 特判简单情况
+   */
+  friend bool divide_trivial(const int2048 &, const int2048 &, int2048 &, int2048 &);
+  /**
+   * [Knuth D]
+   * 使用朴素估商办法（Knuth D）来计算小规模除法
+   * 需要保证A和B全部非负，且保证B非零
+   * 计算出A = Q * B + R
+   * 其中0 <= R < B
+   * Q和R写入对应位置
+   */
+  friend void divide_basic(const int2048 &, const int2048 &, int2048 &, int2048 &);
+  /**
+   * 传入一个完成归一化的分母B > 0
+   * 假设B有n位，则BASE_ ^ n / 2 <= B < BASE_ ^ n
+   * 那么取S = BASE_ ^ (2 * n)
+   * 目标是返回floor(S / B)
+   */
+  friend void compute_reciprocal(const int2048 &, int2048 &);
+  /**
+   * [Newton's method]
+   * 使用牛顿迭代法来计算大规模除法
+   * 需要保证A和B全部非负，且保证B非零
+   * 计算出A = Q * B + R
+   * 其中0 <= R < B
+   * Q和R写入对应位置
+   */
+  friend void divide_advanced(const int2048 &, const int2048 &, int2048 &, int2048 &);
+  // 选择商块大小
+  friend int choose_k(const int2048 &, const int2048 &);
   int2048 &operator/=(const int2048 &);
   friend int2048 operator/(int2048, const int2048 &);
-
   int2048 &operator%=(const int2048 &);
   friend int2048 operator%(int2048, const int2048 &);
 
