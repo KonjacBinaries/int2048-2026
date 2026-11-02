@@ -190,7 +190,6 @@ public:
   friend bool operator>=(const int2048 &, const int2048 &);
 };
 } // namespace sjtu
-#include "int2048.h" // 被pragma once拦截
 
 namespace sjtu {
 
