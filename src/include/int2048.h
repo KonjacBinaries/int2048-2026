@@ -21,8 +21,26 @@ namespace sjtu {
 struct omega_table;
 class int2048 {
 private:
-  static constexpr unsigned int BASE_ = 1000000; // 选择BASE_进制
-  static constexpr unsigned int BASE_SIZE_ = 6; // 一个BASE_的长度
+  /**
+   * @param OPTIMIZATION_LEVEL_: 选择压位优化激进程度
+   *  OPTIMIZATION_LEVEL_ = 0 : 进行5位压位，粗略估计有效位数在「四千万位」以上，
+   *                            主要瓶颈在于NTT模数的原根阶数，但是效率较低
+   *  OPTIMIZATION_LEVEL_ = 1 : 进行6位压位，粗略估计有效位数只有「两百万位」左右，
+   *                            主要瓶颈在于CRT合并时的值域上限，相对稳妥
+   *  OPTIMIZATION_LEVEL_ = 2 : 进行7位压位，粗略估计有效位数只有「五万位」左右，
+   *                            主要瓶颈仍然在于CRT合并时的值域上限，不宜采用
+   * 
+   *  进行5位压位时，瓶颈已经在于NTT模数的原根阶数，再设置更低的优化挡位没有意义。
+   * 
+   *  进行8位压位时，粗略估计有效位数已经骤减至「两千位」左右，而进行9位压位时，
+   *  有效位数已经不足「一百位」，所以并未设置8位及以上的优化挡位，事实上，即便
+   *  是7位压位也不建议采用，因为「五万位」的意义太过局限，其作为大整数是不合格的。
+   */
+  static constexpr unsigned int OPTIMIZATION_LEVEL_ = 1;
+  static constexpr unsigned int CHOOSE_BASE_[3] = {5, 6, 7};
+  static constexpr unsigned int CHOOSE_BASE_SIZE_[3] = {100000, 1000000, 10000000};
+  static constexpr unsigned int BASE_ = CHOOSE_BASE_[OPTIMIZATION_LEVEL_]; // 选择BASE_进制
+  static constexpr unsigned int BASE_SIZE_ = CHOOSE_BASE_SIZE_[OPTIMIZATION_LEVEL_]; // 一个BASE_的长度
   static constexpr unsigned long long MODULE[2] = {998244353ull, 469762049ull}; // 模数
   static constexpr unsigned long long PRIMITIVE_ROOT = 3ull; // 两个模数共同的原根
   static constexpr unsigned long long INVERSE_OF_MODULE_0_MOD_MODULE_1 = 208783132ull; // MODULE_0在模MODULE_1意义下的逆元
