@@ -21,8 +21,8 @@ namespace sjtu {
 struct omega_table;
 class int2048 {
 private:
-  static constexpr unsigned int BASE_ = 100000; // 选择BASE_进制
-  static constexpr unsigned int BASE_SIZE_ = 5; // 一个BASE_的长度
+  static constexpr unsigned int BASE_ = 1000000; // 选择BASE_进制
+  static constexpr unsigned int BASE_SIZE_ = 6; // 一个BASE_的长度
   static constexpr unsigned long long MODULE[2] = {998244353ull, 469762049ull}; // 模数
   static constexpr unsigned long long PRIMITIVE_ROOT = 3ull; // 两个模数共同的原根
   static constexpr unsigned long long INVERSE_OF_MODULE_0_MOD_MODULE_1 = 208783132ull; // MODULE_0在模MODULE_1意义下的逆元

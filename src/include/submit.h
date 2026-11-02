@@ -21,8 +21,8 @@ namespace sjtu {
 struct omega_table;
 class int2048 {
 private:
-  static constexpr unsigned int BASE_ = 100000; // 选择BASE_进制
-  static constexpr unsigned int BASE_SIZE_ = 5; // 一个BASE_的长度
+  static constexpr unsigned int BASE_ = 1000000; // 选择BASE_进制
+  static constexpr unsigned int BASE_SIZE_ = 6; // 一个BASE_的长度
   static constexpr unsigned long long MODULE[2] = {998244353ull, 469762049ull}; // 模数
   static constexpr unsigned long long PRIMITIVE_ROOT = 3ull; // 两个模数共同的原根
   static constexpr unsigned long long INVERSE_OF_MODULE_0_MOD_MODULE_1 = 208783132ull; // MODULE_0在模MODULE_1意义下的逆元
@@ -743,6 +743,7 @@ bool operator>=(const int2048 &A, const int2048 &B) {
 // 呃呃，long long的上界似乎是9223372036854775807 > 98078391676174336
 // 还有，9223372036854775807 > 468937311669714944
 // 我的天哪long long大人
+// 如果压六位呢？压六位的话，就会炸long long，但是本题数据范围下，如果到了这种状况，也太极端了
 // 好了，就用long long
 // 这一位新产生的carry最多也绝对不会超过是98078391676174336 / 100000，大概980783916761吧
 // 所以上一位进过来的carry最多也对不会超过
@@ -844,12 +845,24 @@ void NTT(
         }
         for (int begin_position = 0; begin_position + aim_len <= N; begin_position += aim_len) {
             for (int t = 0; t < sub_len; ++t) {
-                unsigned int A1 = polynomial[begin_position + t],
-                                   A2 = polynomial[begin_position + sub_len + t]
-                                        * omega_pow[t]
-                                        % MODULE;
-                polynomial[begin_position + t] = (A1 + A2 >= MODULE) ? A1 + A2 - MODULE : A1 + A2;
-                polynomial[begin_position + sub_len + t] = (A1 < A2) ? A1 + MODULE - A2 : A1 - A2;
+                unsigned int A1 = polynomial[begin_position + t];
+                unsigned int A2 = polynomial[begin_position + sub_len + t]
+                                  * omega_pow[t]
+                                  % MODULE;
+                unsigned int add = A1 + A2 - MODULE; add += (MODULE & (0u - (add >> 31u)));
+                // 将A1 + A2 - MODULE的二进制编码直接写入usigned int的add
+                // 如果A1 + A2 - MODULE < 0，那它将会是A1 + A2 - MODULE的补码形式，值为UINT_MAX + A1 + A2 - MODULE
+                // 所以，最高位(add >> 31u)将会是1u，0u - 1u发生自然溢出，变成全1，正好形成一个mask，使得add += MODULE
+                // 这时候，发生自然溢出，得到A1 + A2
+                // 否则，(0u - (add >> 31u)) = 0u，add不变
+                unsigned int sub = A1 - A2; sub += (MODULE & (0u - (sub >> 31u)));
+                // A1 - A2的二进制编码直接写入unsigned int的sub
+                // 如果A1 < A2，那就是个补码，值为UINT_MAX + A1 - A2
+                // 同样用(0u - (sub >> 31u))生成这个由符号决定的mask
+                // 如果mask为1-mask，就补一个MODULE，自然溢出回A1 - A2 + MODULE
+                // 否则，正好什么也不做
+                polynomial[begin_position + t] = add;
+                polynomial[begin_position + sub_len + t] = sub;
             }
         } // 按块合并
     }
@@ -1196,7 +1209,7 @@ void divide_advanced(int2048 A, int2048 B, int2048 &Q, int2048 &R) {
        return;
     }
     const int N = B.size();
-    if (N <= 200 || (A.size() - N) <= 20) {
+    if (N <= 200 || (A.size() - N) <= 32) {
         return divide_basic(A, B, Q, R);
     } // 基础除法复杂度大概是N * (M - N)级别的
     int2048 d = int2048::BASE_ / (B[N - 1] + 1u);
