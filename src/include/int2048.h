@@ -39,6 +39,12 @@ private:
    * 2. 不存在负0
    */
   void normalize();
+  unsigned int &operator[](const unsigned int &);
+  const unsigned int &operator[](const unsigned int &) const;
+  const unsigned int size() const;
+  const bool empty() const;
+  void push_back(const unsigned int &);
+  void resize(const unsigned int &, const unsigned int &);
 public:
   // 空构造函数
   int2048();
@@ -142,13 +148,18 @@ public:
    * 其中0 <= R < B
    * Q和R写入对应位置
    */
-  friend void divide_advanced(const int2048 &, const int2048 &, int2048 &, int2048 &);
+  friend void divide_advanced(int2048, int2048, int2048 &, int2048 &);
+  /**
+   * 最终除法接口
+   * 不做任何要求
+   */
+  friend void divide(const int2048 &, const int2048 &, int2048 &, int2048 &);
   // 选择商块大小
   friend int choose_k(const int2048 &, const int2048 &);
-  int2048 &operator/=(const int2048 &);
-  friend int2048 operator/(int2048, const int2048 &);
-  int2048 &operator%=(const int2048 &);
-  friend int2048 operator%(int2048, const int2048 &);
+  int2048 &operator/=(const int2048);
+  friend int2048 operator/(const int2048 &, const int2048 &);
+  int2048 &operator%=(const int2048);
+  friend int2048 operator%(const int2048 &, const int2048 &);
 
   friend std::istream &operator>>(std::istream &, int2048 &);
   friend std::ostream &operator<<(std::ostream &, const int2048 &);

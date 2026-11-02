@@ -4,11 +4,9 @@
 sjtu::int2048 a, b, c, d;
 #include <cassert>
 int main() {
-     {
-        std::cin >> a;
-        sjtu::compute_reciprocal(a, b);
-        std::cout << b << std::endl;
-        std::cout << a * b << std::endl;
+    while (1) {
+        std::cin >> a >> b;
+        std::cout << a / b << " " << a % b << std::endl;
     }
     return 0;
 }
