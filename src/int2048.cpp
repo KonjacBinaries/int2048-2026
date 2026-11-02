@@ -624,17 +624,23 @@ constexpr omega_table make_omega_table() {
     omega_table temp{};
     for (int i = 0; i <= MAX_OMEGA; ++i) {
         temp.value_[i][0][0] = fast_pow(int2048::PRIMITIVE_ROOT,
-                                  (int2048::MODULE[0] - 1ull) / (1ull << i),
-                                  int2048::MODULE[0]);
+                                        (int2048::MODULE[0] - 1ull) 
+                                        / (1ull << i),
+                                        int2048::MODULE[0]);
         temp.value_[i][0][1] = fast_pow(int2048::PRIMITIVE_ROOT,
-                                  (int2048::MODULE[1] - 1ull) / (1ull << i),
-                                  int2048::MODULE[1]);
+                                        (int2048::MODULE[1] - 1ull) 
+                                        / (1ull << i),
+                                        int2048::MODULE[1]);
         temp.value_[i][1][0] = fast_pow(int2048::PRIMITIVE_ROOT,
-                                  (int2048::MODULE[0] - 1ull) - (int2048::MODULE[0] - 1ull) / (1ull << i),
-                                  int2048::MODULE[0]);
+                                        (int2048::MODULE[0] - 1ull) 
+                                        - (int2048::MODULE[0] - 1ull)
+                                        / (1ull << i),
+                                        int2048::MODULE[0]);
         temp.value_[i][1][1] = fast_pow(int2048::PRIMITIVE_ROOT,
-                                  (int2048::MODULE[1] - 1ull) - (int2048::MODULE[1] - 1ull) / (1ull << i),
-                                  int2048::MODULE[1]);
+                                        (int2048::MODULE[1] - 1ull) 
+                                        - (int2048::MODULE[1] - 1ull) 
+                                        / (1ull << i),
+                                        int2048::MODULE[1]);
     }
     return temp;
 }
