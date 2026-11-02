@@ -21,8 +21,26 @@ namespace sjtu {
 struct omega_table;
 class int2048 {
 private:
-  static constexpr unsigned int BASE_ = 1000000; // 选择BASE_进制
-  static constexpr unsigned int BASE_SIZE_ = 6; // 一个BASE_的长度
+  /**
+   * @param OPTIMIZATION_LEVEL_: 选择压位优化激进程度
+   *  OPTIMIZATION_LEVEL_ = 0 : 进行5位压位，粗略估计有效位数在「四千万位」以上，
+   *                            主要瓶颈在于NTT模数的原根阶数，但是效率较低
+   *  OPTIMIZATION_LEVEL_ = 1 : 进行6位压位，粗略估计有效位数只有「两百万位」左右，
+   *                            主要瓶颈在于CRT合并时的值域上限，相对稳妥
+   *  OPTIMIZATION_LEVEL_ = 2 : 进行7位压位，粗略估计有效位数只有「五万位」左右，
+   *                            主要瓶颈仍然在于CRT合并时的值域上限，不宜采用
+   * 
+   *  进行5位压位时，瓶颈已经在于NTT模数的原根阶数，再设置更低的优化挡位没有意义。
+   * 
+   *  进行8位压位时，粗略估计有效位数已经骤减至「两千位」左右，而进行9位压位时，
+   *  有效位数已经不足「一百位」，所以并未设置8位及以上的优化挡位，事实上，即便
+   *  是7位压位也不建议采用，因为「五万位」的意义太过局限，其作为大整数是不合格的。
+   */
+  static constexpr unsigned int OPTIMIZATION_LEVEL_ = 1;
+  static constexpr unsigned int CHOOSE_BASE_[3] = {5, 6, 7};
+  static constexpr unsigned int CHOOSE_BASE_SIZE_[3] = {100000, 1000000, 10000000};
+  static constexpr unsigned int BASE_ = CHOOSE_BASE_[OPTIMIZATION_LEVEL_]; // 选择BASE_进制
+  static constexpr unsigned int BASE_SIZE_ = CHOOSE_BASE_SIZE_[OPTIMIZATION_LEVEL_]; // 一个BASE_的长度
   static constexpr unsigned long long MODULE[2] = {998244353ull, 469762049ull}; // 模数
   static constexpr unsigned long long PRIMITIVE_ROOT = 3ull; // 两个模数共同的原根
   static constexpr unsigned long long INVERSE_OF_MODULE_0_MOD_MODULE_1 = 208783132ull; // MODULE_0在模MODULE_1意义下的逆元
@@ -172,6 +190,7 @@ public:
   friend bool operator>=(const int2048 &, const int2048 &);
 };
 } // namespace sjtu
+#include "int2048.h" // 被pragma once拦截
 
 namespace sjtu {
 
@@ -716,7 +735,7 @@ bool operator>=(const int2048 &A, const int2048 &B) {
 // 468937312667959297
 // 524277514292428800
 // 压六位的话，得除掉32才能保证正确性
-// 能处理的数位长度暴跌到2 ^ 18 * 6 = 1,572,864，大概一千万位
+// 能处理的数位长度暴跌到2 ^ 18 * 6 = 1,572,864，大概一百万位
 // 原先可以处理四千万位
 // 这就确保了CRT必然可以还原出x
 // 设x = k * MODULE[0] + a
@@ -748,7 +767,7 @@ bool operator>=(const int2048 &A, const int2048 &B) {
 // 呃呃，long long的上界似乎是9223372036854775807 > 98078391676174336
 // 还有，9223372036854775807 > 468937311669714944
 // 我的天哪long long大人
-// 如果压六位呢？压六位的话，就会炸long long
+// 如果压六位呢？压六位的话，就会炸long long，不过显然CRT还原才是最大的瓶颈
 // 但是CRT已经限制数长了，要求数长小于一千万位，这直接就把值上限砍掉了32倍
 // 好了，就用long long
 // 这一位新产生的carry最多也绝对不会超过是98078391676174336 / 100000，大概980783916761吧
