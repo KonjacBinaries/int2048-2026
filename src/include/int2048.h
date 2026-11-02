@@ -37,8 +37,8 @@ private:
    *  是7位压位也不建议采用，因为「五万位」的意义太过局限，其作为大整数是不合格的。
    */
   static constexpr unsigned int OPTIMIZATION_LEVEL_ = 1;
-  static constexpr unsigned int CHOOSE_BASE_[3] = {5, 6, 7};
-  static constexpr unsigned int CHOOSE_BASE_SIZE_[3] = {100000, 1000000, 10000000};
+  static constexpr unsigned int CHOOSE_BASE_[3] = {100000, 1000000, 10000000}{5, 6, 7};
+  static constexpr unsigned int CHOOSE_BASE_SIZE_[3] = {5, 6, 7};
   static constexpr unsigned int BASE_ = CHOOSE_BASE_[OPTIMIZATION_LEVEL_]; // 选择BASE_进制
   static constexpr unsigned int BASE_SIZE_ = CHOOSE_BASE_SIZE_[OPTIMIZATION_LEVEL_]; // 一个BASE_的长度
   static constexpr unsigned long long MODULE[2] = {998244353ull, 469762049ull}; // 模数
